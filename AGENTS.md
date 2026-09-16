@@ -41,9 +41,19 @@
 - **删除只能靠磁盘判定**：插件只监听 `write`/`edit`，删文件通常走 shell 命令（`Remove-Item`/`rm`），解析命令不可靠；`statusOf()` 因此以「文件当前是否存在」为准。推论：会话外被删的文件也会显示「删除」（这正是期望），而**新建后又删掉**的文件显示「删除」而不是「新增」。
 - **Windows 路径**：Host 端文件项的 `name` 是 `String(path).split('/').pop()`，反斜杠路径下等于整条路径；要展示路径请用 `repoPath`（仓库相对）/ `absPath`（绝对）。
 - **生效范围**：Host 端改动需**重启 DSH Desktop**；客户端 bundle 改动刷新页面即可。桌面壳每次启动都会按 `dsh.profile.bundles` 重写顺序。
+- **受限沙箱下 git 推拉必失败**（2026-09-16 实测）：走 SSH 时 `git clone/ls-remote/push` 报 `couldn't create signal pipe, Win32 error 5`（git 给 ssh 建管道被沙箱拦），直接执行 `ssh -T git@github.com` 反而正常；走 HTTPS 时 `schannel: AcquireCredentialsHandle failed: SEC_E_NO_CREDENTIALS`。结论：**推送必须在沙箱外终端执行，或单次提权 `danger-full-access`**。只读的 GitHub 查询不需要提权——`curl.exe -x http://10.0.8.34:10810 https://api.github.com/...` 在 workspace-write 下可用（本会话多次验证）。
 
 ## Maintenance
 
 - 桌面 profile：`C:\Users\czy\.dsh\profiles\desktop`；当前激活 profile 见 `%APPDATA%\DSH Desktop\profile-selection\state.json`（`active: desktop`）。
 - **npm 未发布**：README 安装段写的是 GitHub 源 `dsh plugin --profile web add github:sujingkpo/dsh-change-review-live`（桌面端把 `web` 换成 `desktop`）（GitHub 仓库已更名为 `sujingkpo/dsh-change-review-live`，与包名同名；remote 为 `git@github.com:sujingkpo/dsh-change-review-live.git`，本地目录名仍是 `dsh-change-review`）；本机开发时实际走 profile 的 `link:` 依赖（见下条），README 的安装段**只保留 `dsh plugin add`** 一种方式，原先的「手动部署（cordis.patch.yml 片段）」已按要求删除——不要再往 README 加回。
 - 校验「安装件 = 仓库」：`profiles/desktop/package.json` 的依赖键 `dsh-change-review-live` → `link:D:/work/github/dsh-change-review`（依赖名随 2026-09-14 更名，路径仍是原目录），且 `node_modules/dsh-change-review-live` 是 `SymbolicLink` 指向本仓库 —— 改仓库文件即改安装件，无需重装。`dsh.profile.bundles` 与 `pnpm-lock.yaml` 里的包名也同步为 `dsh-change-review-live`。
+
+## 发布 / 商店收录
+
+- **商店 = [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 列表**（dsh-market 读同一份数据）。收录数据是 `data/plugins/<owner>__<repo>.yml`，**一个插件一个文件**；两个 README 由 `scripts/generate-readme.mjs` 生成，**禁止手工编辑**，合并后在 main 上自动重生成。
+- 本插件的条目：`data/plugins/sujingkpo__dsh-change-review-live.yml`，`category: ui`（上游 cirelir 那条是 `git`，另一个 fork xwh5 也是 `ui`——**重复是唯一实质风险**，靠描述里的差异点与 fork 说明交代）。条目字段只允许 `url` / `name` / `category` / `description.en|zh` / `tarball`（`ENTRY_KEYS`，多一个键就被打回；描述含 `: ` 必须加引号，且必须单行）。完整文案与命令见 `.handoff/商店收录-提交流程.md`。
+- **`screenshots.json`（仓库根）**：市场详情页的 AppStore 式截图，相对路径 1–8 张，指向仓库内已有图片；改截图推自己的仓库即可，不必再提 PR（列表侧还有个旧的 `data/screenshots.json` 回退，**别往里加键**）。当前声明 `assets/screenshots/review-list.png`、`assets/screenshots/diff-pane.png`。
+- 收录要求逐条（2026-09-16 核对）：`package.json` 声明 `dsh.bundle` ✅（只有 `dsh.client` 不够，这是最常见退回原因）；仓库创建满 1 天 ✅（2026-08-21 创建）；真实代码 ✅；**仓库需加 `dsh-plugin` topic**（当前 topics 为空，待加）；推荐把官方 `@deepseek-ai/*` 声明为 `peerDependencies`（本包目前一个依赖都没声明，跳过）——若要声明，范围必须带显式预发布分支（如 `>=0.0.1-rc.1 <0.1.0 || >=0.1.0-rc.1 <0.2.0-0`），否则静默排除所有 0.1.0-rc.* 构建。
+- 未发 npm、也不声明 `tarball`（仓库无构建步骤，源码安装即可用）：**都不影响收录**，npm 只影响市场是否显示下载量。`latest/download/` 形式的 tarball 若资产名带版本号，下次发版即 404——真要用就钉 release tag。
+- fork 状态：`sujingkpo/awesome-dsh-plugin` 已存在，且与上游 main 同提交 `7a5da6a5`（2026-09-16 compare 为 identical）；提 PR 的分支名用 `add-dsh-change-review-live`，PR 只该动 `data/plugins/`（+1/−0），一个 PR 最多 3 条。
