@@ -1,6 +1,6 @@
 {
   "name": "dsh-change-review-live",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "description": "DeepSeek Harness 实时审查：追踪会话内 write/edit 工具调用，实时以可自定义颜色的 diff 对比展示；会话隔离、子代理聚合、SSE 推送。",
   "type": "module",
   "main": "lib/index.js",
