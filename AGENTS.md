@@ -130,7 +130,7 @@
 - 桌面 profile：`C:\Users\czy\.dsh\profiles\desktop`；当前激活 profile 见 `%APPDATA%\DSH Desktop\profile-selection\state.json`（`active: desktop`）。
 - 校验「安装件 = 仓库」：profile `package.json` 的依赖键 `dsh-change-review-live` → `link:D:/work/github/dsh-change-review`，且 `node_modules/dsh-change-review-live` 是 `SymbolicLink` 指向本仓库——改仓库文件即改安装件，无需重装。
 - 安装方式：README 只保留 `dsh plugin --profile web add github:sujingkpo/dsh-change-review-live`（桌面端把 `web` 换成 `desktop`）；**不要再往 README 加回「手动部署（cordis.patch.yml 片段）」**（已按用户要求删除）。
-- 发版：现有 tag `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.2.0`（2026-09-20，提交 `f04b7ec`）/ `v0.2.1`（2026-09-20，浏览器端卡死修复）/ **`v0.3.0`（2026-09-21，快捷筛选 + 标题栏摘要改版）**——`0.4.0`（dsh-ops 兼容 + 历史数据清理）已改完代码、**尚未提交与打 tag**（分支 `main`，remote 走 SSH）；GitHub Release 页面**始终未创建**（本机没有 `gh`，历来只推 tag——用户确认过的做法），发版文案在 `.handoff/release-v*.md`。发版惯例：先一个代码提交（`feat:` 新能力 / `fix:` 修复，代码 + AGENTS.md），再一个 `chore: 版本号定为 X 并补齐发布说明` 提交（`package.json` + `.handoff/release-X.md`），然后 `git tag vX`，最后 `git push origin main` + `git push origin vX`（推送在沙箱内必失败：`ssh … couldn't create signal pipe, Win32 error 5`，需单次 `danger-full-access`）。
+- 发版：现有 tag `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.2.0`（2026-09-20，提交 `f04b7ec`）/ `v0.2.1`（2026-09-20，浏览器端卡死修复）/ **`v0.3.0`（2026-09-21，快捷筛选 + 标题栏摘要改版）/ `v0.4.0`（2026-11-06，dsh-ops 兼容 + 历史数据清理）**（分支 `main`，remote 走 SSH）；GitHub Release 页面**始终未创建**（本机没有 `gh`，历来只推 tag——用户确认过的做法），发版文案在 `.handoff/release-v*.md`。发版惯例：先一个代码提交（`feat:` 新能力 / `fix:` 修复，代码 + AGENTS.md），再一个 `chore: 版本号定为 X 并补齐发布说明` 提交（`package.json` + `.handoff/release-X.md`），然后 `git tag vX`，最后 `git push origin main` + `git push origin vX`（推送在沙箱内必失败：`ssh … couldn't create signal pipe, Win32 error 5`，需单次 `danger-full-access`）。
 - 本文件是活文档：发现新的仓库命令、约定或坑，就地更新对应小节；保持精简，删掉过时条目。
 
 ### 发布 / 商店收录
