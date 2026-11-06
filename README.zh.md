@@ -26,6 +26,8 @@ DeepSeek Harness（DSH）**实时审查**插件（`dsh-change-review-live`）：
 | 颜色自定义 | `设置 → 实时审查`：12 项颜色，每项带透明度滑块（rgba），改动即时生效并自动保存；含浅色 / 深色预设与「恢复默认（随外观）」 |
 | 会话隔离 / 子代理聚合 | 每个会话只展示自己的修改；子代理的修改沿 owner 链聚合到根父会话 |
 | 实时刷新 | Host 记录后经 SSE 推送，列表与 diff 面板随改动实时刷新，另有轮询兜底 |
+| 兼容 dsh-ops | 同时认领 `dsh-ops` 的 `ops_write_file` / `ops_edit_file`（精确记录 before/after）与 `ops_bash`（命令前后快照做差，含 `workdir`） |
+| 历史数据清理 | `设置 → 实时审查` 底部：磁盘用量与年龄分布、按「保留天数 / 保留最近 N 个会话」清理旧记录，支持定时清理（默认关闭）与手动立即清理 |
 
 ## 📸 截图
 
@@ -59,6 +61,7 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 6. 刷新语义：**会话记录**模式随改动自动刷新（SSE，另有 15 秒兜底轮询）；**初始版本 / Git 版本**不自动刷新，用「刷新」按钮手动重取；面板不可见（侧栏收起或标签在后台）时暂停轮询
 7. 右键 diff 行 → 复制「文件地址#行号」（选中多行时复制行号范围）
 8. 颜色：**设置 → 实时审查**，改动即时生效并自动保存
+9. 历史数据清理：同一页下方，可看磁盘占用、设保留天数 / 保留最近 N 个会话 / 清理周期，点「立即清理」按当前设置清一次（会先就地问一句确认），点「保存设置」持久化（保存在 `$DSH_HOME/diff-review/cleanup.json`）
 
 ## 🎨 颜色配置
 
@@ -86,12 +89,15 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 - **持久化**：
   - 修改记录：`$DSH_HOME/diff-review/<sessionId>.json`（未设 `DSH_HOME` 时回退 `~/.dsh`），防抖自动保存、退出时同步落盘，重启后自动恢复；删除该目录即清空历史
   - UI 偏好：面板高度按会话存 `$DSH_HOME/diff-review/ui/<sessionId>.json`
+  - 清理配置：`$DSH_HOME/diff-review/cleanup.json`（缺省 `{ enabled:false, intervalHours:6, keepDays:30, keepLatest:5, includePrefs:true, protectCurrent:true }`）
   - 颜色：浏览器 localStorage（`dsh.diff-review.colors`）
+- **记录来源**：内置 `write` / `edit` 直接取工具载荷里的前后内容；`dsh-ops` 的 `ops_write_file` / `ops_edit_file` 因为载荷只有 `revision`/`bytes`/`lineCount`，改为「执行前读盘存基线 + 执行后读盘」取得两侧内容，并在记录上标注 `via`；`pwsh` / `bash` / `run_code` / `ops_bash` 走命令前后文件快照做差（`ops_bash` 会按 `workdir` 切换快照目录）
 - **文件状态判定**：新增 = 该文件的首个操作没有「修改前内容」（会话中新建）；删除 = 该文件当前不在磁盘上（不解析删除命令）；其余为修改
 - **轮次归属**：写记录时扫描会话日志的 `turn/start` 给每项操作打轮次；升级前落盘、没有轮次的旧记录按时间线回填
 - **撤回原理**：每项操作记录 write / edit 返回的完整前后快照。撤回最后一项 = 精确还原快照；撤回中间一项 = 三路行合并（保留其后无冲突的修改），重叠即拒绝并提示
 - **容量保护**：单文件最多 100 次操作；单侧 diff 最多 1500 行；三路合并单侧上限 2000 行；展示用片段最多 350,000 字符；超过 5,000,000 字符的超大文件不存快照（该记录退化为片段 diff 且不可撤回）
 - **生效范围**：Host 端（`lib/index.js`）改动需重启 DSH；浏览器端（`lib/client.js`）改动刷新页面即可
+- **DSH 版本要求**：`package.json` 声明 `engines.dsh = ">=0.2.2-rc.1 <0.2.3-0"`；不带 `engines` 的旧版插件对 DSH 版本没有任何约束
 
 ## 🗂 架构
 
@@ -99,13 +105,13 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 Host（lib/index.js）
   · tools/result 监听 → 按会话分桶记录 + 轮次归属
   · LCS 行级 diff、三路合并撤回
-  · HTTP：/diff-review/{events(SSE) · summary · file · turn · against · revert · ui-prefs · open}
+  · HTTP：/diff-review/{events(SSE) · summary · file · turn · against · revert · ui-prefs · open · cleanup}
         │  HTTP + SSE（同源）
 Browser UI（lib/client.js，__ModuleLoader__ bundle）
   · SessionProbe（隐藏）同步当前会话
   · LivePanel：输入框上方的审查列表（conversation.input.dock）
   · 自注册侧栏标签类型 dsh-change-review-live:diff-review：正文注册到 sidebar.right.pane.tab，标题图标注册到 sidebar.right.pane.tab.title
-  · 设置页「实时审查」颜色自定义
+  · 设置页「实时审查」：颜色自定义 + 历史数据清理
 ```
 
 ## ⚖️ 免责声明

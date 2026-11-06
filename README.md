@@ -26,6 +26,8 @@
 | Color customization | Under **Settings → 实时审查**: 12 colors, each with an opacity slider (rgba), applied instantly and saved automatically; light/dark presets and a restore-defaults button included |
 | Session isolation / subagent aggregation | Each session sees only its own changes; subagent changes are aggregated up the owner chain to the root parent session |
 | Live updates | The Host broadcasts over SSE, so the list and the diff tab refresh as files change, with polling as a fallback |
+| dsh-ops compatible | Also claims `dsh-ops`'s `ops_write_file` / `ops_edit_file` (exact before/after) and `ops_bash` (before/after file snapshots, honouring `workdir`) |
+| History cleanup | Bottom of **Settings → 实时审查**: disk usage and age buckets, purge old records by "keep days / keep latest N sessions", with an optional scheduled run (off by default) and a manual purge |
 
 ## 📸 Screenshots
 
@@ -59,6 +61,7 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 6. Refresh semantics: **session log** updates automatically as the session changes (SSE, plus a 15-second fallback poll); **initial version / Git version** never auto-refresh — use the **Refresh** button. Polling pauses while the tab is not visible (sidebar collapsed or tab in the background)
 7. Right-click a diff line to copy `path#line` (a line range when several lines are selected)
 8. Colors: **Settings → 实时审查**; changes apply instantly and are saved automatically
+9. History cleanup: the same page also shows disk usage and lets you set keep-days / keep-latest-N / interval, then either purge now (an inline confirmation first) or save the settings (`$DSH_HOME/diff-review/cleanup.json`)
 
 ## 🎨 Color Configuration
 
@@ -86,12 +89,15 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 - **Persistence**:
   - Review records: `$DSH_HOME/diff-review/<sessionId>.json` (falling back to `~/.dsh` when `DSH_HOME` is unset), debounced auto-save plus a synchronous flush on exit, restored automatically after a restart — delete that directory to wipe the history
   - UI preferences: the panel height per session under `$DSH_HOME/diff-review/ui/<sessionId>.json`
+  - Cleanup settings: `$DSH_HOME/diff-review/cleanup.json` (defaults `{ enabled:false, intervalHours:6, keepDays:30, keepLatest:5, includePrefs:true, protectCurrent:true }`)
   - Colors: browser localStorage (`dsh.diff-review.colors`)
+- **Where records come from**: built-in `write` / `edit` report their before/after content directly; `dsh-ops`'s `ops_write_file` / `ops_edit_file` only return `revision` / `bytes` / `lineCount`, so the plugin snapshots the file before the call and reads it again afterwards, tagging the record with `via`; `pwsh` / `bash` / `run_code` / `ops_bash` are diffed from file snapshots taken around the command (`ops_bash` switches the snapshot directory to `workdir`)
 - **Status rules**: `added` = the file's first operation had no prior content (created in this session); `deleted` = the file is not on disk right now (delete commands are never parsed); everything else is `modified`
 - **Turn attribution**: each operation is tagged with the turn it happened in by scanning the session log's `turn/start` events; records written before that tagging existed are back-filled from the timeline
 - **How revert works**: every operation stores the full before/after snapshot reported by the write/edit tool. Reverting the newest operation restores that snapshot exactly; reverting a middle one performs a three-way line merge that keeps later non-overlapping changes and refuses on overlap
 - **Capacity guards**: at most 100 operations per file; up to 1500 lines per diff side; a 2000-line-per-side limit on the three-way merge; display fragments capped at 350,000 characters; files larger than 5,000,000 characters get no snapshot (that record degrades to a fragment diff and cannot be reverted)
 - **Where changes take effect**: Host-side changes (`lib/index.js`) need a DSH restart; browser-side changes (`lib/client.js`) only need a page refresh
+- **DSH version**: `package.json` declares `engines.dsh = ">=0.2.2-rc.1 <0.2.3-0"`; without `engines` an older build of this plugin imposed no version constraint at all
 
 ## 🗂 Architecture
 
@@ -99,13 +105,13 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
 Host (lib/index.js)
   · tools/result listener → per-session buckets + turn attribution
   · LCS line diff, three-way merge revert
-  · HTTP: /diff-review/{events (SSE) · summary · file · turn · against · revert · ui-prefs · open}
+  · HTTP: /diff-review/{events (SSE) · summary · file · turn · against · revert · ui-prefs · open · cleanup}
         │  HTTP + SSE (same origin)
 Browser UI (lib/client.js, __ModuleLoader__ bundle)
   · hidden SessionProbe syncing the current session
   · LivePanel: the review list above the composer (conversation.input.dock)
   · self-registered sidebar tab type dsh-change-review-live:diff-review: body under sidebar.right.pane.tab, chip icon under sidebar.right.pane.tab.title
-  · Settings page 「实时审查」 for color customization
+  · Settings page 「实时审查」: color customization + history cleanup
 ```
 
 ## ⚖️ Disclaimer
