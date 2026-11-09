@@ -91,7 +91,7 @@ dsh plugin --profile web add github:sujingkpo/dsh-change-review-live
   - UI 偏好：面板高度按会话存 `$DSH_HOME/diff-review/ui/<sessionId>.json`
   - 清理配置：`$DSH_HOME/diff-review/cleanup.json`（缺省 `{ enabled:false, intervalHours:6, keepDays:30, keepLatest:5, includePrefs:true, protectCurrent:true }`）
   - 颜色：浏览器 localStorage（`dsh.diff-review.colors`）
-- **记录来源**：内置 `write` / `edit` 直接取工具载荷里的前后内容；`dsh-ops` 的 `ops_write_file` / `ops_edit_file` 因为载荷只有 `revision`/`bytes`/`lineCount`，改为「执行前读盘存基线 + 执行后读盘」取得两侧内容，并在记录上标注 `via`；`pwsh` / `bash` / `run_code` / `ops_bash` 走命令前后文件快照做差（`ops_bash` 会按 `workdir` 切换快照目录）
+- **记录来源**：内置 `write` / `edit` 直接取工具载荷里的前后内容；`dsh-ops` 的 `ops_write_file` / `ops_edit_file` 因为载荷只有 `revision`/`bytes`/`lineCount`，改为「执行前读盘存基线 + 执行后读盘」取得两侧内容，并在记录上标注 `via`；`pwsh` / `bash` / `run_code` / `ops_bash` 原本走命令前后文件快照做差（`ops_bash` 会按 `workdir` 切换快照目录）——**该兜底已于 2026-11-09 关闭**（源码里 `SHELL_SNAPSHOT_ENABLED = false`）：同一工作区多会话并发时，它会把别的会话的写入误记到本会话；现在只记录上述四个写工具的精确路径
 - **文件状态判定**：新增 = 该文件的首个操作没有「修改前内容」（会话中新建）；删除 = 该文件当前不在磁盘上（不解析删除命令）；其余为修改
 - **轮次归属**：写记录时扫描会话日志的 `turn/start` 给每项操作打轮次；升级前落盘、没有轮次的旧记录按时间线回填
 - **撤回原理**：每项操作记录 write / edit 返回的完整前后快照。撤回最后一项 = 精确还原快照；撤回中间一项 = 三路行合并（保留其后无冲突的修改），重叠即拒绝并提示
